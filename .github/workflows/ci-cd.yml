@@ -13,18 +13,6 @@ jobs:
       ARTIFACTS_FOLDER: ${{ github.workspace }}/Artifacts
       GITHUB_RUN_NUMBER: ${{ github.run_number }}
     steps:
-      - name: Conditionals handler
-        id: conditionals_handler
-        shell: pwsh
-        run: |
-          $defaultBranch = 'vnext'
-          $githubRef = "${{ github.ref }}"
-          $isDefaultBranch = 'false'
-          if ( $githubRef -like "*$defaultBranch*" ) {
-            $isDefaultBranch = 'true'
-          }
-          Write-Output "::set-output name=is_default_branch::$(echo $isDefaultBranch)"
-
       - name: Data gatherer
         id: data_gatherer
         shell: pwsh
@@ -33,6 +21,18 @@ jobs:
           $repo = 'microsoft/OpenAPI.NET'
           $defaultBranch = Invoke-RestMethod -Method GET -Uri https://api.github.com/repos/$repo | Select-Object -ExpandProperty default_branch
           Write-Output "::set-output name=default_branch::$(echo $defaultBranch)"
+
+      - name: Conditionals handler
+        id: conditionals_handler
+        shell: pwsh
+        run: |
+          $defaultBranch = "${{ steps.data_gatherer.outputs.default_branch }}"
+          $githubRef = "${{ github.ref }}"
+          $isDefaultBranch = 'false'
+          if ( $githubRef -like "*$defaultBranch*" ) {
+            $isDefaultBranch = 'true'
+          }
+          Write-Output "::set-output name=is_default_branch::$(echo $isDefaultBranch)"
 
       - name: Checkout repository
         id: checkout_repo
@@ -50,7 +50,7 @@ jobs:
           default_bump: false
           release_branches: ${{ steps.data_gatherer.outputs.default_branch }}
 
-      - name: Build projects 
+      - name: Build projects
         id: build_projects
         shell: pwsh
         run: |
@@ -59,8 +59,8 @@ jobs:
             '.\src\Microsoft.OpenApi.Readers\Microsoft.OpenApi.Readers.csproj',
             '.\src\Microsoft.OpenApi.Tool\Microsoft.OpenApi.Tool.csproj'
           )
-          $projectCurrentVersion = ([xml](Get-Content .\src\Microsoft.OpenApi\Microsoft.OpenApi.csproj)).Project.PropertyGroup.Version
           $gitNewVersion = if ("${{ steps.tag_generator.outputs.new_version }}") {"${{ steps.tag_generator.outputs.new_version }}"} else {$null}
+          $projectCurrentVersion = ([xml](Get-Content .\src\Microsoft.OpenApi\Microsoft.OpenApi.csproj)).Project.PropertyGroup.Version
           $projectNewVersion = $gitNewVersion ?? $projectCurrentVersion
 
           $projectsArray | ForEach-Object {
@@ -89,7 +89,8 @@ jobs:
             -c Release
           }
 
-      - name: Upload NuGet packages as artifacts
+      - if: steps.tag_generator.outputs.new_version != ''
+        name: Upload NuGet packages as artifacts
         id: ul_packages_artifact
         uses: actions/upload-artifact@v1
         with:
