@@ -13,6 +13,10 @@ jobs:
       ARTIFACTS_FOLDER: ${{ github.workspace }}/Artifacts
       GITHUB_RUN_NUMBER: ${{ github.run_number }}
     steps:
+      - shell: pwsh
+        run: |
+          $PSVersionTable
+    
       - name: Conditionals handler
         id: conditionals_handler
         shell: pwsh
