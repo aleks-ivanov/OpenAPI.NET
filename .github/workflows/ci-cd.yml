@@ -22,7 +22,7 @@ jobs:
           $defaultBranch = Invoke-RestMethod -Method GET -Uri https://api.github.com/repos/$repo | Select-Object -ExpandProperty default_branch
           Write-Output "::set-output name=default_branch::$(echo $defaultBranch)"
 
-      - name: Conditionals handler
+      - name: Conditionals handler 
         id: conditionals_handler
         shell: pwsh
         run: |
