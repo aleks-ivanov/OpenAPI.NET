@@ -50,7 +50,7 @@ jobs:
           default_bump: false
           release_branches: ${{ steps.data_gatherer.outputs.default_branch }}
 
-      - name: Build projects
+      - name: Build projects 
         id: build_projects
         shell: pwsh
         run: |
