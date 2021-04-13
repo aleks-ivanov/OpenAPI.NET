@@ -19,7 +19,7 @@ jobs:
           $defaultBranch = 'vnext'
           $githubRef = "${{ github.ref }}"
           $isDefaultBranch = 'false'
-          if ( $githubRef -like "*$defaultBranch*" ) {
+          if ( $githubRef -like '*"$defaultBranch"*' ) {
             $isDefaultBranch = 'true'
           }
           Write-Output "::set-output name=is_default_branch::$(echo $isDefaultBranch)"
