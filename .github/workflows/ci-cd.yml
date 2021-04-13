@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       latest_version: ${{ steps.tag_generator.outputs.new_version }}
+      is_default_branch: ${{ steps.conditionals_handler.outputs.is_default_branch }}
     env:
       ARTIFACTS_FOLDER: ${{ github.workspace }}/Artifacts
       GITHUB_RUN_NUMBER: ${{ github.run_number }}
@@ -103,7 +104,7 @@ jobs:
           path: Artifacts/NuGet/
 
   cd:
-    if: github.ref == 'refs/heads/vnext' && needs.ci.outputs.latest_version != ''
+    if: needs.ci.outputs.is_default_branch == 'true' && needs.ci.outputs.latest_version != ''
     name: Continuous Deployment
     needs: ci
     runs-on: ubuntu-latest
