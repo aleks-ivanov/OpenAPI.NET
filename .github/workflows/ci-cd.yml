@@ -86,20 +86,22 @@ jobs:
 
       - name: Run unit tests
         id: run_unit_tests
+        continue-on-error: true
         shell: pwsh
         run: |
           Get-ChildItem -Filter *Tests.csproj -File -Recurse | ForEach-Object {
             dotnet test $PSItem.FullName `
-            --configuration Release
+            --configuration Release `
+            --logger trx `
+            --results-directory TestResults/
           }
 
       # - if: steps.tag_generator.outputs.new_version != ''
-      #   name: Upload NuGet packages as artifacts
-      #   id: ul_packages_artifact
-      #   uses: actions/upload-artifact@v1
-      #   with:
-      #     name: NuGet packages
-      #     path: Artifacts/NuGet/
+      - name: Upload testresults as artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: TestResults
+          path: TestResults/
 
   cd:
     if: needs.ci.outputs.latest_version != ''
