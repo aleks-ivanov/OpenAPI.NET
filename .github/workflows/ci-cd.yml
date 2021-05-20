@@ -75,14 +75,14 @@ jobs:
 
           Get-ChildItem -Filter *.csproj -Exclude *Tests*, *Workbench* -File -Recurse | ForEach-Object {
             dotnet build $PSItem.FullName `
-            --configuration Release # `
-            # --output $env:ARTIFACTS_FOLDER `
-            # -property:Version=$projectNewVersion 
+            --configuration Release `
+            --output $env:ARTIFACTS_FOLDER `
+            -property:Version=$projectNewVersion 
           }
 
           # Move NuGet packages to separate folder for pipeline convenience
-          # New-Item -Name Artifacts/NuGet -ItemType Directory
-          # Get-ChildItem -Path Artifacts/ -Filter *.nupkg | Move-Item -Destination Artifacts/NuGet
+          New-Item -Name Artifacts/NuGet -ItemType Directory
+          Get-ChildItem -Path Artifacts/ -Filter *.nupkg | Move-Item -Destination Artifacts/NuGet
 
       - name: Run unit tests
         id: run_unit_tests
@@ -96,8 +96,8 @@ jobs:
             --results-directory TestResults/
           }
 
-      # - if: steps.tag_generator.outputs.new_version != ''
-      - name: Upload testresults as artifacts
+      - if: steps.tag_generator.outputs.new_version != ''
+        name: Upload testresults as artifacts
         uses: actions/upload-artifact@v1
         with:
           name: TestResults
@@ -109,12 +109,12 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      # - name: Download and extract NuGet packages
-      #   id: dl_packages_artifact
-      #   uses: actions/download-artifact@v2
-      #   with:
-      #     name: NuGet packages
-      #     path: NuGet/
+      - name: Download and extract NuGet packages
+        id: dl_packages_artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: NuGet packages
+          path: NuGet/
 
       # - name: Push NuGet packages to NuGet.org
       #   id: push_nuget_packages
@@ -135,9 +135,9 @@ jobs:
         with:
           name: OpenApi v${{ needs.ci.outputs.latest_version }}
           tag_name: v${{ needs.ci.outputs.latest_version }}
-          # files: |
-          #   NuGet/Microsoft.OpenApi.${{ needs.ci.outputs.latest_version }}.nupkg
-          #   NuGet/Microsoft.OpenApi.Readers.${{ needs.ci.outputs.latest_version }}.nupkg
+          files: |
+            NuGet/Microsoft.OpenApi.${{ needs.ci.outputs.latest_version }}.nupkg
+            NuGet/Microsoft.OpenApi.Readers.${{ needs.ci.outputs.latest_version }}.nupkg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
