@@ -90,9 +90,10 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem -Filter *Tests.csproj -File -Recurse | ForEach-Object {
+            $fileBaseName = $PSItem.Basename
             dotnet test $PSItem.FullName `
             --configuration Release `
-            --logger trx `
+            --logger "trx;LogFileName=$fileBaseName.trx;verbosity=normal" `
             --results-directory TestResults/
           }
 
