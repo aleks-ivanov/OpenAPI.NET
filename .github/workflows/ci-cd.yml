@@ -100,14 +100,14 @@ jobs:
       - if: steps.tag_generator.outputs.new_version != ''
         name: Upload NuGet packages as artifacts
         id: ul_packages_artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2.2.3
         with:
           name: NuGet packages
           path: Artifacts/NuGet/
 
       - name: Upload test results as artifacts
         id: ul_testresults_artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2.2.3
         with:
           name: TestResults
           path: TestResults/
