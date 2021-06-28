@@ -1,0 +1,138 @@
+name: CI/CD Pipeline
+
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+    outputs:
+      latest_version: ${{ steps.tag_generator.outputs.new_version }}
+    env:
+      ARTIFACTS_FOLDER: ${{ github.workspace }}/Artifacts
+      GITHUB_RUN_NUMBER: ${{ github.run_number }}
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+
+      - name: Data gatherer
+        id: data_gatherer
+        shell: pwsh
+        run: |
+          # Get default branch
+          $repo = "${{ github.repository }}"
+          $defaultBranch = Invoke-RestMethod -Method GET -Uri https://api.github.com/repos/$repo | Select-Object -ExpandProperty default_branch
+          Write-Output "::set-output name=default_branch::$(echo $defaultBranch)"
+
+      - name: Checkout repository
+        id: checkout_repo
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        name: Bump GH tag
+        id: tag_generator
+        uses: mathieudutour/github-tag-action@v5.4
+        with: 
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: false
+          release_branches: master
+
+      - name: Build projects
+        id: build_projects
+        shell: pwsh
+        run: |
+          $gitNewVersion = if ("${{ steps.tag_generator.outputs.new_version }}") {"${{ steps.tag_generator.outputs.new_version }}"} else {$null}
+          $projectCurrentVersion = ([xml](Get-Content -Path .\src\Microsoft.OpenApi\Microsoft.OpenApi.csproj)).Project.PropertyGroup.Version
+          $projectNewVersion = $gitNewVersion ?? $projectCurrentVersion
+
+          Get-ChildItem -Path src/ -Filter *.csproj -Exclude *Workbench* -File -Recurse | ForEach-Object {
+            dotnet build $PSItem.FullName `
+            --configuration Release # `
+            # --output $env:ARTIFACTS_FOLDER `
+            # -property:Version=$projectNewVersion 
+          }
+
+          # Move NuGet packages to separate folder for pipeline convenience
+          # New-Item -Name Artifacts/NuGet -ItemType Directory
+          # Get-ChildItem -Path Artifacts/ -Filter *.nupkg | Move-Item -Destination Artifacts/NuGet
+
+      - name: Run unit tests
+        continue-on-error: true
+        id: run_unit_tests
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path test/ -Filter *.csproj -File -Recurse | ForEach-Object {
+            $fileBaseName = $PSItem.Basename
+            dotnet test $PSItem.FullName `
+            --configuration Release `
+            --logger "trx;LogFileName=$fileBaseName.trx;verbosity=normal" `
+            --results-directory TestResults/
+          }
+
+      - name: Upload test results as artifacts
+        continue-on-error: true
+        id: ul_testresults_artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: TestResults
+          path: TestResults/
+
+      # - if: steps.tag_generator.outputs.new_version != ''
+      #   name: Upload NuGet packages as artifacts
+      #   id: ul_packages_artifact
+      #   uses: actions/upload-artifact@v1
+      #   with:
+      #     name: NuGet packages
+      #     path: Artifacts/NuGet/
+
+  cd:
+    if: needs.ci.outputs.latest_version != ''
+    name: Continuous Deployment
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        id: checkout_repo
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # - name: Download and extract NuGet packages
+      #   id: dl_packages_artifact
+      #   uses: actions/download-artifact@v2
+      #   with:
+      #     name: NuGet packages
+      #     path: NuGet/
+
+      # - name: Push NuGet packages to NuGet.org
+      #   id: push_nuget_packages
+      #   continue-on-error: true
+      #   shell: pwsh
+      #   run: |
+      #     Get-ChildItem -Path NuGet/ -Filter *.nupkg | ForEach-Object {
+      #       nuget push $PSItem.FullName `
+      #       -ApiKey $env:NUGET_API_KEY `
+      #       -Source https://api.nuget.org/v3/index.json
+      #     }
+      #   env:
+      #     NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Create and publish release
+        id: create_release
+        shell: pwsh
+        run: |
+          $releaseTag = "v${{ needs.ci.outputs.latest_version }}"
+          $releaseTitle = "OpenApi v${{ needs.ci.outputs.latest_version }}"
+          # $releaseAssets = 'NuGet/Microsoft.OpenApi.${{ needs.ci.outputs.latest_version }}.nupkg', 'NuGet/Microsoft.OpenApi.Readers.${{ needs.ci.outputs.latest_version }}.nupkg'
+
+          gh release create $releaseTag -t $releaseTitle $releaseAssets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Built with ❤ by [Pipeline Foundation](https://pipeline.foundation)
