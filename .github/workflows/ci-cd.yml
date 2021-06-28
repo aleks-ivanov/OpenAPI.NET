@@ -62,6 +62,7 @@ jobs:
           # Get-ChildItem -Path Artifacts/ -Filter *.nupkg | Move-Item -Destination Artifacts/NuGet
 
       - name: Run unit tests
+        continue-on-error: true
         id: run_unit_tests
         shell: pwsh
         run: |
@@ -74,6 +75,7 @@ jobs:
           }
 
       - name: Upload test results as artifacts
+        continue-on-error: true
         id: ul_testresults_artifact
         uses: actions/upload-artifact@v1
         with:
